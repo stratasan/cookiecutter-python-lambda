@@ -1,0 +1,7 @@
+{
+  "name": "cookies",
+  "package_name": "cookies",
+  "project": "cookies",
+  "terraform_bucket": "com-stratasan-star-v1-terraform",
+  "region": "us-east-1"
+}

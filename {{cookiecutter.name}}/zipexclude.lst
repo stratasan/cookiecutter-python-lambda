@@ -1,0 +1,2 @@
+# file patterns excluded when building zip package
+*__pycache__/*

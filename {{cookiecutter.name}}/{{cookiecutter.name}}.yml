@@ -1,0 +1,170 @@
+name: {{cookiecutter.name}} CICD
+
+on:
+  push:
+    branches:
+    - master
+    paths:
+    # only commits containing changes under these paths will trigger this workflow
+    - 'services/{{cookiecutter.name}}/**'
+  pull_request:
+    branches:
+    - '*'
+    paths:
+    - 'services/{{cookiecutter.name}}/**'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Env
+      run: |
+        env | sort
+    - uses: actions/checkout@master
+    - name: Install python 3.7
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.7.x'
+        architecture: 'x64'
+    - name: Build
+      working-directory: services/{{cookiecutter.name}}
+      run: |
+        python --version
+        make venv
+        . venv/bin/activate
+        make build
+        make test
+  format:
+    runs-on: ubuntu-latest
+    name: Terraform Linting
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - name: Install tfenv
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          echo ::add-path::$HOME/.tfenv/bin
+      - name: Install Terraform
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          tfenv install
+          terraform --version
+      - name: Linting
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          terraform fmt -no-color -check -list -recursive
+  terraform:
+    needs: ["test", "format"]
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - name: Install tfenv
+        run: |
+          git clone https://github.com/tfutils/tfenv.git ~/.tfenv
+          echo ::add-path::$HOME/.tfenv/bin
+      - name: Install Terraform
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          tfenv install
+          terraform --version
+      - name: Install python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.7.x'
+          architecture: 'x64'
+      - name: Requirements & Package
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          make venv
+          . venv/bin/activate
+          make package
+      - name: Init
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          terraform init -no-color -input=false
+        env:
+          {% raw %}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          {% endraw %}
+      - name: Validation
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          terraform validate -no-color
+        env:
+          {% raw %}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          {% endraw %}
+      - name: Plan (Dev)
+        working-directory: services/{{cookiecutter.name}}
+        if: github.event_name == 'pull_request'
+        env:
+          {% raw %}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_IN_AUTOMATION: "true"
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_SERVICES_DSN }}
+          TF_VAR_vault_address: ${{ secrets.VAULT_ADDR }}
+          {% endraw %}
+        run: |
+          terraform workspace select dev
+          terraform plan -no-color -input=false
+      - name: Apply (Dev)
+        working-directory: services/{{cookiecutter.name}}
+        if: github.event_name == 'pull_request'
+        env:
+          {% raw %}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_IN_AUTOMATION: "true"
+          TF_VAR_vault_address: ${{ secrets.VAULT_ADDR }}
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_SERVICES_DSN }}
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          {% endraw %}
+        run: |
+          terraform apply -no-color -auto-approve -input=false
+          pip install datadog
+          dog event post --type Github --no_host --tags step:deploy,service:{{ cookiecutter.name }}-dev,env:{{cookiecutter.project}}-dev --priority low --alert_type info 'Deploy for {{cookiecutter.project}} service "{{ cookiecutter.name }}"' ''
+      - name: Plan (Prod)
+        if: github.event_name == 'push'
+        working-directory: services/{{cookiecutter.name}}
+        env:
+          {% raw %}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_IN_AUTOMATION: "true"
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_SERVICES_DSN }}
+          TF_VAR_vault_address: ${{ secrets.VAULT_ADDR }}
+          {% endraw %}
+        run: |
+          terraform workspace select prod
+          terraform plan -no-color -input=false
+      - name: Apply (Prod)
+        if: github.event_name == 'push'
+        working-directory: services/{{cookiecutter.name}}
+        env:
+          {% raw %}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TF_IN_AUTOMATION: "true"
+          TF_VAR_vault_address: ${{ secrets.VAULT_ADDR }}
+          TF_VAR_sentry_dsn: ${{ secrets.SENTRY_SERVICES_DSN }}
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
+          {% endraw %}
+        run: |
+          terraform apply -no-color -input=false -auto-approve
+          pip install datadog
+          dog event post --type Github --no_host --tags step:deploy,service:{{ cookiecutter.name }}-prod,env:{{cookiecutter.project}}-prod --priority low --alert_type info 'Deploy for {{cookiecutter.project}} service "{{ cookiecutter.name }}"' ''

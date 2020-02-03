@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest==5.2.0
+mypy
+black==19.10b0
