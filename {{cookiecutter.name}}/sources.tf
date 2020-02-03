@@ -15,7 +15,7 @@ data "terraform_remote_state" "TOPIC" {
   backend   = "s3"
   workspace = terraform.workspace
   config = {
-    key    = "sns/FIXME/terraform.tfstate"
+    key    = "sns/{{cookiecutter.sns_topic_name}}/terraform.tfstate"
     bucket = "{{cookiecutter.terraform_bucket}}"
     region = "{{cookiecutter.region}}"
   }

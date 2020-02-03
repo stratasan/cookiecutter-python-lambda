@@ -2,6 +2,8 @@
   "name": "cookies",
   "package_name": "cookies",
   "project": "cookies",
-  "terraform_bucket": "com-stratasan-star-v1-terraform",
+  "sns_topic_name": "cookies",
+  "terraform_bucket": "cookies",
+  "subscription_event_type": "event-type",
   "region": "us-east-1"
 }

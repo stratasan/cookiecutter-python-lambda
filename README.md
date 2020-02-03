@@ -34,7 +34,7 @@ our Lambda functions, but being successful with Terraform ultimately means being
 Having installed [cookiecutter](https://cookiecutter.readthedocs.io/en/1.7.0/), run:
 
 ```
-$ cookiecutter gh:stratasan/cookiecutter-lambda-python/
+$ cookiecutter gh:stratasan/cookiecutter-python-lambda/
 [answer questions that cookiecutter asks you]
 ```
 

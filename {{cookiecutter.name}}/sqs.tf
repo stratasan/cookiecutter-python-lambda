@@ -53,7 +53,7 @@ resource "aws_sns_topic_subscription" "topic-subscription" {
   endpoint  = aws_sqs_queue.queue.arn
   filter_policy = jsonencode(
     {
-      event_type = ["FIXME"]
+      event_type = ["{{cookiecutter.subscription_event_type}}"]
     }
   )
 }
