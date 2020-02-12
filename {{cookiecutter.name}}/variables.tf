@@ -22,11 +22,6 @@ variable "vault_address" {
   description = "URL for our Vault, override with TF_VAR_vault_address"
 }
 
-variable "vault_root" {
-  default     = "secret/star/services/${terraform.workspace}"
-  description = "Secrets under this path may be read by the function"
-}
-
 variable "zipfile" {
   default     = "lambda.zip"
   description = "filename of package produced by Make"

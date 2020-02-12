@@ -14,7 +14,7 @@ resource "aws_lambda_function" "function" {
       SERVICE     = "{{cookiecutter.name}}"
       SENTRY_DSN  = var.sentry_dsn
       VAULT_ADDR  = var.vault_address
-      VAULT_ROOT  = var.vault_root
+      VAULT_ROOT  = "secret/star/services/${terraform.workspace}"
     }
   }
 
