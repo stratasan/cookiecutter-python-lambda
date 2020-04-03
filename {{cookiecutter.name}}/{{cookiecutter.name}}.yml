@@ -20,20 +20,21 @@ env:
   AWS_DEFAULT_REGION: "us-east-1"
 
 jobs:
+
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
-    - name: Env
-      run: |
-        env | sort
+
     - uses: actions/checkout@v2
+
     - name: Install python 3.7
       uses: actions/setup-python@v1
       with:
         python-version: '3.7.x'
         architecture: 'x64'
-    - name: Build
+
+    - name: Test
       working-directory: services/{{cookiecutter.name}}
       run: |
         python --version
@@ -41,32 +42,65 @@ jobs:
         . venv/bin/activate
         make build
         make test
+
   format:
     runs-on: ubuntu-latest
     name: Terraform Linting
     steps:
+
       - uses: actions/checkout@v2
+
       - name: Install tfenv
         run: |
           git clone https://github.com/tfutils/tfenv.git ~/.tfenv
           echo ::add-path::$HOME/.tfenv/bin
+
       - name: Install Terraform
         working-directory: services/{{cookiecutter.name}}
         run: |
           tfenv install
           terraform --version
+
       - name: Linting
         working-directory: services/{{cookiecutter.name}}
         run: |
           terraform fmt -no-color -check -list -recursive
+
+  build:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install python 3.7
+        uses: actions/setup-python@v1
+        with:
+          python-version: '3.7.x'
+          architecture: 'x64'
+
+      - name: Requirements & Package
+        working-directory: services/{{cookiecutter.name}}
+        run: |
+          make venv
+          . venv/bin/activate
+          make package
+          ls -la
+
+      - name: Capture artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: zipfile
+          path: services/{{cookiecutter.name}}/lambda.zip
+
+
   terraform:
     needs: ["test", "format"]
     runs-on: ubuntu-latest
     name: Deploy
     env: {% raw %}
       TF_WORKSPACE: "dev"
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
       TF_VAR_sentry_dsn: ${{ secrets.SENTRY_SERVICES_DSN }}
       TF_VAR_vault_address: ${{ secrets.VAULT_ADDR }}
       DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
@@ -74,46 +108,60 @@ jobs:
  {% endraw %}
     steps:
       - uses: actions/checkout@v2
+
       - name: Install tfenv
         run: |
           git clone https://github.com/tfutils/tfenv.git ~/.tfenv
           echo ::add-path::$HOME/.tfenv/bin
+
       - name: Install Terraform
         working-directory: services/{{cookiecutter.name}}
         run: |
           tfenv install
           terraform --version
+
       - name: Install python 3.7
         uses: actions/setup-python@v1
         with:
           python-version: '3.7.x'
           architecture: 'x64'
-      - name: Requirements & Package
+
+      - name: Install the dog
         working-directory: services/{{cookiecutter.name}}
         run: |
           make venv
           . venv/bin/activate
-          make package
           pip install datadog
+
+      - name: Download zipfile
+        uses: actions/download-artifact@v1
+        with:
+          name: zipfile
+          path: services/{{cookiecutter.name}}
+
       - name: Init
         working-directory: services/{{cookiecutter.name}}
         run: |
           terraform init -no-color -input=false
+
       - name: Validation
         working-directory: services/{{cookiecutter.name}}
         run: |
           terraform validate -no-color
+
       - name: Plan (Dev)
         if: github.event_name == 'pull_request'
         working-directory: services/{{cookiecutter.name}}
         run: |
           terraform plan -no-color -input=false
+
       - name: Apply (Dev)
         if: github.event_name == 'pull_request'
         working-directory: services/{{cookiecutter.name}}
         run: |
           terraform apply -no-color -auto-approve -input=false
           ./venv/bin/dog event post --type Github --no_host --tags step:deploy,service:{{ cookiecutter.name }}-dev,env:{{cookiecutter.project}}-dev --priority low --alert_type info 'Deploy for {{cookiecutter.project}} service "{{ cookiecutter.name }}"' ''
+
       - name: Plan (Prod)
         if: github.event_name == 'push'
         working-directory: services/{{cookiecutter.name}}
@@ -121,6 +169,7 @@ jobs:
           TF_WORKSPACE: "prod"
         run: |
           terraform plan -no-color -input=false
+
       - name: Apply (Prod)
         if: github.event_name == 'push'
         working-directory: services/{{cookiecutter.name}}
