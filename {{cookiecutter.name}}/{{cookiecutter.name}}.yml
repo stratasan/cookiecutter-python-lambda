@@ -94,7 +94,7 @@ jobs:
 
 
   terraform:
-    needs: ["test", "format"]
+    needs: ["test", "format", "build"]
     runs-on: ubuntu-latest
     name: Deploy
     env: {% raw %}
