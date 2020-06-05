@@ -18,6 +18,8 @@ on:
 env:
   TF_IN_AUTOMATION: "true"
   AWS_DEFAULT_REGION: "us-east-1"
+  TF_VAR_upload_key: lambda_uploads/{{cookiecutter.name}}-${{ '{{' }} github.sha {{ '}}' }}.zip
+  TF_VAR_upload_bucket: com-stratasan-star-v1-terraform
 
 jobs:
 
@@ -86,12 +88,16 @@ jobs:
           make package
           ls -la
 
-      - name: Capture artifact
-        uses: actions/upload-artifact@v1
-        with:
-          name: zipfile
-          path: services/{{cookiecutter.name}}/lambda.zip
-
+      - name: Upload artifact to S3
+        working-directory: services/{{ cookiecutter.name }}
+        run: |
+          # Upload to S3
+          aws s3 cp lambda.zip s3://${TF_VAR_upload_bucket}/${TF_VAR_upload_key}
+          # Apply a tag on the object, opting it into a lifecycle
+          aws s3api put-object-tagging \
+            --bucket ${TF_VAR_upload_bucket} \
+            --key ${TF_VAR_upload_key} \
+            --tagging '{"TagSet": [{"Key": "Lifecycle", "Value": "cicd_cleanup"}]}'
 
   terraform:
     needs: ["test", "format"]
