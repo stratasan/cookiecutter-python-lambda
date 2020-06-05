@@ -100,7 +100,7 @@ jobs:
             --tagging '{"TagSet": [{"Key": "Lifecycle", "Value": "cicd_cleanup"}]}'
 
   terraform:
-    needs: ["test", "format"]
+    needs: ["test", "format", "build"]
     runs-on: ubuntu-latest
     name: Deploy
     env: {% raw %}
