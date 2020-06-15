@@ -139,12 +139,6 @@ jobs:
           . venv/bin/activate
           pip install datadog
 
-      - name: Download zipfile
-        uses: actions/download-artifact@v1
-        with:
-          name: zipfile
-          path: services/{{cookiecutter.name}}
-
       - name: Init
         working-directory: services/{{cookiecutter.name}}
         run: |
