@@ -71,6 +71,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     name: Build
+    env:
+{% raw %}
+      AWS_ACCESS_KEY_ID: ${{ secrets.NEW_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.NEW_AWS_SECRET_ACCESS_KEY }}
+{% endraw %}
     steps:
       - uses: actions/checkout@v2
 
@@ -138,12 +143,6 @@ jobs:
           make venv
           . venv/bin/activate
           pip install datadog
-
-      - name: Download zipfile
-        uses: actions/download-artifact@v1
-        with:
-          name: zipfile
-          path: services/{{cookiecutter.name}}
 
       - name: Init
         working-directory: services/{{cookiecutter.name}}

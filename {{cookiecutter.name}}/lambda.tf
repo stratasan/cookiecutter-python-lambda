@@ -1,8 +1,8 @@
 resource "aws_lambda_function" "function" {
   function_name    = "{{cookiecutter.name}}-${terraform.workspace}"
   runtime          = var.runtime
-  filename         = var.zipfile
-  source_code_hash = base64sha256(filebase64(var.zipfile))
+  s3_bucket        = var.upload_bucket
+  s3_key           = var.upload_key
   handler          = "handler.handler"
   role             = aws_iam_role.iam_role.arn
   memory_size      = var.memory_mb

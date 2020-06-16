@@ -22,7 +22,10 @@ variable "vault_address" {
   description = "URL for our Vault, override with TF_VAR_vault_address"
 }
 
-variable "zipfile" {
-  default     = "lambda.zip"
-  description = "filename of package produced by Make"
+variable "upload_bucket" {
+  description = "S3 bucket of lambda code package"
+}
+
+variable "upload_key" {
+  description = "S3 key of lambda code package"
 }
